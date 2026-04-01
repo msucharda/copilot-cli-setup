@@ -37,22 +37,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 | `-Force` | Reinstall packages and overwrite existing MCP config entries |
 | `-SkipMcpConfig` | Install tools only, don't write MCP configuration |
 
-### Examples
-
-```powershell
-# Standard install
-.\bootstrap-copilot.ps1
-
-# Force reinstall everything
-.\bootstrap-copilot.ps1 -Force
-
-# Install tools only (no MCP config)
-.\bootstrap-copilot.ps1 -SkipMcpConfig
-```
-
 ## Post-Install Steps
-
-After running the script:
 
 1. **Restart your terminal** (PATH changes require a new session)
 2. **Authenticate with GitHub:** `gh auth login --web`
@@ -84,7 +69,76 @@ The script writes MCP server config to `~/.copilot/mcp-config.json`:
 }
 ```
 
-Both servers use `npx -y` which always fetches the latest version at runtime — no manual updates needed.
+---
+
+## Testing with an Azure VM
+
+A self-contained Azure environment is included for testing the bootstrap script on a real Windows 11 VM via SSH.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Resource Group: rg-copilot-test-dev                 │
+│                                                      │
+│  NSG (SSH from your IP)                              │
+│  VNet 10.2.0.0/24 → Subnet 10.2.0.0/26              │
+│                                                      │
+│  ┌────────────────────────────────────┐              │
+│  │ vm-copilot-dev                     │              │
+│  │ Windows 11 Enterprise 24H2        │              │
+│  │ Standard_B2s · OpenSSH Server     │              │
+│  │ Public IP · Auto-shutdown 18:00   │              │
+│  └────────────────────────────────────┘              │
+└──────────────────────────────────────────────────────┘
+```
+
+### Quick Start
+
+```bash
+# Set required environment variables
+export ADMIN_PASSWORD='YourC0mplexP@ssword!'
+export ALLOWED_SOURCE_IP=$(curl -s ifconfig.me)/32
+
+# Accept Windows 11 marketplace terms (one-time)
+make accept-terms
+
+# Deploy the VM
+make deploy
+
+# Copy bootstrap script and run it
+make deploy-script
+
+# Verify all tools installed correctly
+make test-remote
+
+# SSH in for interactive testing
+make ssh
+
+# Tear down when done
+make destroy
+```
+
+### Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make lint` | Lint Bicep files |
+| `make build` | Compile Bicep (syntax check) |
+| `make accept-terms` | Accept Windows 11 marketplace image terms |
+| `make deploy` | Deploy the VM to Azure |
+| `make destroy` | Delete the resource group |
+| `make ip` | Show the VM's public IP |
+| `make ssh` | SSH into the VM |
+| `make deploy-script` | Copy and run `bootstrap-copilot.ps1` on the VM |
+| `make test-remote` | Full end-to-end test: deploy script + verify all tools |
+
+### Why Windows 11 (not Windows Server)?
+
+- Windows 11 ships with **WinGet** (App Installer) out of the box
+- Windows Server 2022 does **NOT** have WinGet — only Server 2025 added it
+- Windows 11 has only **Windows PowerShell 5.1** pre-installed (not PS7), which matches the real target scenario
+- The `win11-24h2-ent` image is available as a standard Azure Marketplace image
 
 ## Troubleshooting
 
@@ -95,9 +149,12 @@ Both servers use `npx -y` which always fetches the latest version at runtime —
 | Azure MCP "not authenticated" | Run `az login` before launching Copilot CLI |
 | WorkIQ consent error | Tenant admin must grant consent ([instructions](https://github.com/microsoft/work-iq/blob/main/ADMIN-INSTRUCTIONS.md)) |
 | Execution policy blocks script | `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` |
+| SSH connection refused | Wait 2-3 min after deploy for CSE to finish; check `make ip` |
+| Marketplace terms error | Run `make accept-terms` first |
 
 ## Notes
 
-- The script is **idempotent** — safe to re-run. It skips already-installed packages and merges MCP config without overwriting existing entries.
-- The old `gh copilot` extension was deprecated in October 2025. This script installs the new standalone `copilot` binary.
-- The GitHub MCP server is built into Copilot CLI and does not need configuration.
+- The bootstrap script is **idempotent** — safe to re-run
+- The old `gh copilot` extension was deprecated in October 2025; this installs the new standalone `copilot` binary
+- The GitHub MCP server is built into Copilot CLI and does not need configuration
+- The VM auto-shuts down at 18:00 UTC to save costs; run `make destroy` when done testing

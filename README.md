@@ -1,6 +1,14 @@
 # Copilot CLI Bootstrap for Windows
 
-Bootstrap script that installs the full toolchain for running **GitHub Copilot CLI** with **Azure MCP Server** and **WorkIQ MCP** on Windows.
+Bootstrap script that installs the full toolchain for running **GitHub Copilot CLI** with MCP servers on Windows. Supports two MCP variants:
+
+| Variant | Server | Transport | What it does |
+|---------|--------|-----------|-------------|
+| **AzureMCP** | Azure MCP Server (`@azure/mcp`) | Local (npx) | 40+ Azure service tools — deploy, query, manage resources |
+| **LearnMCP** | Microsoft Learn MCP | Remote HTTP | Search official Microsoft docs, fetch code samples |
+| **Both** *(default)* | Both servers | Local + HTTP | Full coverage: Azure operations + documentation |
+
+WorkIQ MCP (Microsoft 365 intelligence) is always included regardless of variant.
 
 ## What It Installs
 
@@ -34,8 +42,22 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 | Flag | Description |
 |------|-------------|
+| `-McpVariant` | `AzureMCP`, `LearnMCP`, or `Both` (default). Controls which MCP servers are configured. |
 | `-Force` | Reinstall packages and overwrite existing MCP config entries |
 | `-SkipMcpConfig` | Install tools only, don't write MCP configuration |
+
+### Examples
+
+```powershell
+# Default — both Azure MCP + Learn MCP + WorkIQ
+.\bootstrap-copilot.ps1
+
+# Azure MCP only (resource management tools)
+.\bootstrap-copilot.ps1 -McpVariant AzureMCP
+
+# Learn MCP only (documentation search)
+.\bootstrap-copilot.ps1 -McpVariant LearnMCP
+```
 
 ## Post-Install Steps
 
@@ -48,7 +70,9 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## MCP Configuration
 
-The script writes MCP server config to `~/.copilot/mcp-config.json`:
+The script writes MCP server config to `~/.copilot/mcp-config.json`. The contents depend on the `-McpVariant` chosen:
+
+### Both (default)
 
 ```json
 {
@@ -57,6 +81,11 @@ The script writes MCP server config to `~/.copilot/mcp-config.json`:
       "type": "local",
       "command": "npx",
       "args": ["-y", "@azure/mcp@latest", "server", "start"],
+      "tools": ["*"]
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp",
       "tools": ["*"]
     },
     "workiq": {
@@ -68,6 +97,10 @@ The script writes MCP server config to `~/.copilot/mcp-config.json`:
   }
 }
 ```
+
+- **Azure MCP Server** — local process via npx, requires `az login` for auth
+- **Microsoft Learn MCP** — remote HTTP endpoint, no auth needed, free
+- **WorkIQ** — local process via npx, requires M365 tenant admin consent
 
 ---
 

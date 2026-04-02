@@ -5,18 +5,26 @@
 
 .DESCRIPTION
     Installs the full toolchain for running GitHub Copilot CLI with
-    Azure MCP Server and WorkIQ MCP on Windows:
+    MCP servers on Windows:
 
     1. PowerShell 7       (winget)
     2. GitHub CLI          (winget)
     3. Azure CLI           (winget)
     4. Node.js LTS         (winget)  — runtime for MCP servers
     5. GitHub Copilot CLI  (winget)
-    6. Azure MCP Server    (npx, configured in mcp-config.json)
+    6. MCP Servers         (configured in mcp-config.json)
     7. WorkIQ MCP          (npx, configured in mcp-config.json)
+
+    Use -McpVariant to choose which MCP servers to configure:
+      AzureMCP  — Azure MCP Server (npx @azure/mcp, 40+ Azure services)
+      LearnMCP  — Microsoft Learn MCP (remote HTTP, docs search)
+      Both      — Azure MCP + Learn MCP (default)
 
     Safe to re-run — skips already-installed packages and merges
     MCP config without overwriting existing entries.
+
+.PARAMETER McpVariant
+    Which MCP servers to configure: AzureMCP, LearnMCP, or Both (default).
 
 .PARAMETER SkipMcpConfig
     Skip writing the MCP server configuration file.
@@ -25,9 +33,16 @@
     Force reinstall of packages and overwrite existing MCP config entries.
 
 .EXAMPLE
-    # Run from an elevated PowerShell prompt:
-    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    # Install with both Azure MCP + Learn MCP (default):
     .\bootstrap-copilot.ps1
+
+.EXAMPLE
+    # Install with Azure MCP only:
+    .\bootstrap-copilot.ps1 -McpVariant AzureMCP
+
+.EXAMPLE
+    # Install with Microsoft Learn MCP only:
+    .\bootstrap-copilot.ps1 -McpVariant LearnMCP
 
 .EXAMPLE
     # Force reinstall everything:
@@ -41,6 +56,9 @@
 
 [CmdletBinding()]
 param(
+    [ValidateSet('AzureMCP', 'LearnMCP', 'Both')]
+    [string]$McpVariant = 'Both',
+
     [switch]$SkipMcpConfig,
     [switch]$Force
 )
@@ -130,6 +148,7 @@ Write-Host @"
  ╔══════════════════════════════════════════════════════════╗
  ║  Copilot CLI Bootstrap for Windows                      ║
  ║  PowerShell 7 · gh · az · Node · Copilot CLI · MCP     ║
+ ║  MCP Variant: $($McpVariant.PadRight(46))║
  ╚══════════════════════════════════════════════════════════╝
 "@ -ForegroundColor Magenta
 
@@ -221,20 +240,34 @@ if (-not $SkipMcpConfig) {
         Write-OK "Created $mcpConfigDir"
     }
 
-    # Desired MCP server entries
-    $desiredServers = [ordered]@{
-        'Azure MCP Server' = [ordered]@{
+    # Desired MCP server entries based on variant
+    $desiredServers = [ordered]@{}
+
+    # Azure MCP Server — local process via npx (40+ Azure service tools)
+    if ($McpVariant -in @('AzureMCP', 'Both')) {
+        $desiredServers['Azure MCP Server'] = [ordered]@{
             type    = 'local'
             command = 'npx'
             args    = @('-y', '@azure/mcp@latest', 'server', 'start')
             tools   = @('*')
         }
-        'workiq' = [ordered]@{
-            type    = 'local'
-            command = 'npx'
-            args    = @('-y', '@microsoft/workiq@latest', 'mcp')
-            tools   = @('*')
+    }
+
+    # Microsoft Learn MCP — remote HTTP endpoint (docs search, code samples)
+    if ($McpVariant -in @('LearnMCP', 'Both')) {
+        $desiredServers['microsoft-learn'] = [ordered]@{
+            type = 'http'
+            url  = 'https://learn.microsoft.com/api/mcp'
+            tools = @('*')
         }
+    }
+
+    # WorkIQ MCP — always included (Microsoft 365 intelligence)
+    $desiredServers['workiq'] = [ordered]@{
+        type    = 'local'
+        command = 'npx'
+        args    = @('-y', '@microsoft/workiq@latest', 'mcp')
+        tools   = @('*')
     }
 
     # Load or initialize config
@@ -276,6 +309,16 @@ if (-not $SkipMcpConfig) {
             $existing[$prop.Name] = $prop.Value
         }
         $config['mcpServers'] = $existing
+    }
+
+    # Remove variant-managed servers not in current selection
+    # (so switching from Both → AzureMCP removes the Learn entry)
+    $variantManagedKeys = @('Azure MCP Server', 'microsoft-learn')
+    foreach ($key in $variantManagedKeys) {
+        if ($config['mcpServers'].Contains($key) -and -not $desiredServers.Contains($key)) {
+            $config['mcpServers'].Remove($key)
+            Write-OK "MCP server '$key' removed (not in $McpVariant variant)"
+        }
     }
 
     # Merge desired servers
@@ -333,10 +376,10 @@ Write-Host @"
       Inside Copilot CLI, WorkIQ will prompt for EULA acceptance,
       or run from a terminal: npx -y @microsoft/workiq accept-eula
 
-   7. (Optional) Install WorkIQ as a Copilot plugin:
-      > /plugin marketplace add microsoft/work-iq
-      > /plugin install workiq@work-iq
+   7. (Optional) Install Learn MCP as a Copilot plugin (adds agent skills):
+      > /plugin install microsoftdocs/mcp
 
-   MCP config: ~\.copilot\mcp-config.json
+   MCP variant: $McpVariant
+   MCP config:  ~\.copilot\mcp-config.json
 
 "@ -ForegroundColor White

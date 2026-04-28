@@ -29,9 +29,17 @@ WorkIQ MCP (Microsoft 365 intelligence) is always included regardless of variant
 - **Active GitHub Copilot subscription**
 - **Azure subscription** (for Azure MCP Server)
 
+## Quick Start (one-liner)
+
+Open **PowerShell** (or Windows Terminal) as Administrator and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/msucharda/copilot-cli-setup/main/bootstrap-copilot.ps1 | iex
+```
+
 ## Usage
 
-Open **PowerShell** (or Windows Terminal) as Administrator:
+If you've cloned the repo locally:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
@@ -77,7 +85,7 @@ The script writes MCP server config to `~/.copilot/mcp-config.json`. The content
 ```json
 {
   "mcpServers": {
-    "Azure MCP Server": {
+    "azure": {
       "type": "local",
       "command": "npx",
       "args": ["-y", "@azure/mcp@latest", "server", "start"],
@@ -98,7 +106,7 @@ The script writes MCP server config to `~/.copilot/mcp-config.json`. The content
 }
 ```
 
-- **Azure MCP Server** — local process via npx, requires `az login` for auth
+- **azure** — local process via npx, requires `az login` for auth
 - **Microsoft Learn MCP** — remote HTTP endpoint, no auth needed, free
 - **WorkIQ** — local process via npx, requires M365 tenant admin consent
 

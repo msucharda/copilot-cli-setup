@@ -245,7 +245,7 @@ if (-not $SkipMcpConfig) {
 
     # Azure MCP Server — local process via npx (40+ Azure service tools)
     if ($McpVariant -in @('AzureMCP', 'Both')) {
-        $desiredServers['Azure MCP Server'] = [ordered]@{
+        $desiredServers['azure'] = [ordered]@{
             type    = 'local'
             command = 'npx'
             args    = @('-y', '@azure/mcp@latest', 'server', 'start')
@@ -313,7 +313,7 @@ if (-not $SkipMcpConfig) {
 
     # Remove variant-managed servers not in current selection
     # (so switching from Both → AzureMCP removes the Learn entry)
-    $variantManagedKeys = @('Azure MCP Server', 'microsoft-learn')
+    $variantManagedKeys = @('azure', 'Azure MCP Server', 'microsoft-learn')
     foreach ($key in $variantManagedKeys) {
         if ($config['mcpServers'].Contains($key) -and -not $desiredServers.Contains($key)) {
             $config['mcpServers'].Remove($key)

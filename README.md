@@ -34,7 +34,7 @@ WorkIQ MCP (Microsoft 365 intelligence) is always included regardless of variant
 Open **PowerShell** (or Windows Terminal) as Administrator and paste:
 
 ```powershell
-irm https://raw.githubusercontent.com/msucharda/copilot-cli-setup/main/bootstrap-copilot.ps1 | iex
+irm https://raw.githubusercontent.com/msucharda/copilot-cli-setup/refs/heads/master/bootstrap-copilot.ps1 | iex
 ```
 
 ## Usage
